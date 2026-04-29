@@ -78,6 +78,18 @@ export default function DocumentList() {
     };
   }, [documents, fetchDocuments]);
 
+  // Listen for global refresh events (dispatched after upload) so the list updates immediately
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      const mode = detail?.mode ?? "manual";
+      void fetchDocuments(mode);
+    };
+
+    window.addEventListener("documents:refresh", handler as EventListener);
+    return () => window.removeEventListener("documents:refresh", handler as EventListener);
+  }, [fetchDocuments]);
+
   const visibleDocuments = useMemo(() => {
     const filtered = documents.filter((doc) => {
       const matchesSearch = doc.filename.toLowerCase().includes(search.toLowerCase());

@@ -21,7 +21,7 @@ export default function UploadForm() {
       case "uploading":
         return "Uploading document...";
       case "success":
-        return "Upload successful. Redirecting...";
+        return "Upload successful. Processing...";
       case "error":
         return error ?? "Upload failed.";
       default:
@@ -47,6 +47,12 @@ export default function UploadForm() {
         router.push(`/documents/${response.documents[0].id}`);
       } else {
         router.push("/");
+      }
+      // Notify other parts of the app (DocumentList) to refresh the documents list
+      try {
+        window.dispatchEvent(new CustomEvent("documents:refresh", { detail: { mode: "manual" } }));
+      } catch (e) {
+        // ignore in non-browser environments
       }
     } catch (submitError) {
       setState("error");
