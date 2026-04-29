@@ -17,8 +17,12 @@ export interface DocumentDetail extends Document {
 }
 
 export interface UploadDocumentResponse {
-  id: string;
+  documents: Document[];
 }
+
+export interface RetryDocumentResponse extends DocumentDetail {}
+
+export type ExportFormat = "json" | "csv";
 
 export interface FinalizeDocumentPayload {
   extracted_data: Record<string, unknown>;
@@ -28,6 +32,8 @@ export interface FinalizeDocumentPayload {
 export type FinalizeDocumentResponse = DocumentResult;
 
 export type JobEventName =
+  | "job_queued"
+  | "job_started"
   | "document_parsing_started"
   | "document_parsing_completed"
   | "field_extraction_started"

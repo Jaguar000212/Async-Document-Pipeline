@@ -1,8 +1,10 @@
 import type {
   Document,
   DocumentDetail,
+  ExportFormat,
   FinalizeDocumentPayload,
   FinalizeDocumentResponse,
+  RetryDocumentResponse,
   UploadDocumentResponse,
 } from "@/types";
 
@@ -57,13 +59,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function uploadDocument(file: File): Promise<UploadDocumentResponse> {
+export async function uploadDocuments(files: File[]): Promise<UploadDocumentResponse> {
   const formData = new FormData();
-  formData.append("file", file);
+  for (const file of files) {
+    formData.append("files", file);
+  }
 
   return request<UploadDocumentResponse>("/api/documents", {
     method: "POST",
     body: formData,
+  });
+}
+
+export { uploadDocuments as uploadDocument };
+
+export function retryDocument(documentId: string): Promise<RetryDocumentResponse> {
+  return request<RetryDocumentResponse>(`/api/documents/${documentId}/retry`, {
+    method: "POST",
   });
 }
 
@@ -89,6 +101,23 @@ export function finalizeDocument(
       is_finalized: payload.is_finalized ?? true,
     }),
   });
+}
+
+export async function exportDocument(documentId: string, format: ExportFormat): Promise<Blob> {
+  const response = await fetch(buildUrl(`/api/documents/${documentId}/export?format=${format}`), {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const payload = await parseJsonSafely(response);
+    const detail = payload && typeof payload === "object" && "detail" in payload
+      ? (payload as { detail?: unknown }).detail
+      : payload;
+    throw new ApiError(`Request failed with status ${response.status}`, response.status, detail);
+  }
+
+  return await response.blob();
 }
 
 

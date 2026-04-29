@@ -8,6 +8,11 @@ function parseDate(iso: string): Date {
   return new Date(normalizeIsoUtc(iso));
 }
 
+export function parseTimestamp(iso: string): number {
+  const parsed = parseDate(iso);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
 export function formatAbsoluteDate(iso: string): string {
   const parsed = parseDate(iso);
   if (Number.isNaN(parsed.getTime())) return "-";

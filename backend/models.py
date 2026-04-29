@@ -1,7 +1,7 @@
 import uuid
 import datetime
 import enum
-from sqlalchemy import Column, String, DateTime, Enum as SAEnum, Boolean, ForeignKey
+from sqlalchemy import Column, String, DateTime, Enum as SAEnum, Boolean, ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
@@ -20,8 +20,14 @@ class Document(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     filename = Column(String, nullable=False)
+    file_type = Column(String, nullable=True)
+    file_size = Column(Integer, nullable=True)
     status = Column(SAEnum(DocumentStatus, name="document_status"), nullable=False, default=DocumentStatus.QUEUED)
+    retry_count = Column(Integer, nullable=False, default=0)
+    last_event = Column(String, nullable=True)
+    last_error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=False), default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime(timezone=False), default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
 
     # One-to-one relationship to DocumentResult (optional)
     result = relationship("DocumentResult", back_populates="document", uselist=False, cascade="all, delete-orphan")

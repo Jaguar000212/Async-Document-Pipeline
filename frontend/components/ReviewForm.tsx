@@ -3,33 +3,25 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Copy, Download, Save } from "lucide-react";
 
-import { finalizeDocument } from "@/lib/api";
+import { exportDocument, finalizeDocument } from "@/lib/api";
+import type { ExportFormat } from "@/types";
 import type { DocumentResult } from "@/types";
 
 interface ReviewFormProps {
   documentId: string;
   extractedData: Record<string, unknown> | null;
+  isFinalized?: boolean;
   onFinalized?: (result: DocumentResult) => void;
   onToast?: (message: string, kind?: "info" | "success" | "error") => void;
 }
 
-function createDownload(documentId: string, data: Record<string, unknown>): void {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `document-${documentId}-finalized.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-export default function ReviewForm({ documentId, extractedData, onFinalized, onToast }: ReviewFormProps) {
+export default function ReviewForm({ documentId, extractedData, isFinalized = false, onFinalized, onToast }: ReviewFormProps) {
   const [jsonText, setJsonText] = useState<string>(JSON.stringify(extractedData ?? {}, null, 2));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setJsonText(JSON.stringify(extractedData ?? {}, null, 2));
@@ -73,14 +65,33 @@ export default function ReviewForm({ documentId, extractedData, onFinalized, onT
     }
   }
 
-  function handleExport() {
-    if (!parsedJson) {
-      setError("JSON is invalid. Fix it before exporting.");
-      onToast?.("JSON is invalid. Fix it before exporting.", "error");
+  async function exportAs(format: ExportFormat) {
+    if (!isFinalized) {
+      const message = "Finalize the document before exporting.";
+      setError(message);
+      onToast?.(message, "error");
       return;
     }
-    createDownload(documentId, parsedJson);
-    onToast?.("Export started.", "info");
+
+    try {
+      setExporting(format);
+      const blob = await exportDocument(documentId, format);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `document-${documentId}.${format === "json" ? "json" : "csv"}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      onToast?.(`${format.toUpperCase()} export started.`, "success");
+    } catch (exportError) {
+      const message = exportError instanceof Error ? exportError.message : `Failed to export ${format}.`;
+      setError(message);
+      onToast?.(message, "error");
+    } finally {
+      setExporting(null);
+    }
   }
 
   async function handleCopyJson() {
@@ -92,6 +103,7 @@ export default function ReviewForm({ documentId, extractedData, onFinalized, onT
 
     try {
       await navigator.clipboard.writeText(JSON.stringify(parsedJson, null, 2));
+      setCopied(true);
       onToast?.("JSON copied to clipboard.", "success");
     } catch {
       onToast?.("Clipboard permission blocked. Copy failed.", "error");
@@ -121,11 +133,22 @@ export default function ReviewForm({ documentId, extractedData, onFinalized, onT
 
           <button
             type="button"
-            onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            onClick={() => void exportAs("json")}
+            disabled={!isFinalized || exporting !== null}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Download className="h-4 w-4" />
-            Export JSON
+            {exporting === "json" ? "Exporting JSON..." : "Export JSON"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void exportAs("csv")}
+            disabled={!isFinalized || exporting !== null}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Download className="h-4 w-4" />
+            {exporting === "csv" ? "Exporting CSV..." : "Export CSV"}
           </button>
 
           <button
@@ -134,7 +157,7 @@ export default function ReviewForm({ documentId, extractedData, onFinalized, onT
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             <Copy className="h-4 w-4" />
-            Copy JSON
+            {copied ? "Copied!" : "Copy JSON"}
           </button>
         </div>
 

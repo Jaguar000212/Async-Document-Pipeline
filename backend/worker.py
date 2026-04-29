@@ -24,6 +24,11 @@ def _publish(channel: str, event: str, data: dict | None = None):
         pass
 
 
+def _persist_event(doc: Document, event: str, error: str | None = None):
+    doc.last_event = event
+    doc.last_error = error
+
+
 @celery_app.task(name="process_document")
 def process_document(document_id: str):
     """
@@ -42,8 +47,10 @@ def process_document(document_id: str):
 
         # Step 1: mark processing started
         doc.status = DocumentStatus.PROCESSING
+        _persist_event(doc, "job_started")
         session.add(doc)
         session.commit()
+        _publish(channel, "job_started", {"document_id": document_id})
         _publish(channel, "document_parsing_started", {"document_id": document_id})
 
         # Simulate parsing
@@ -74,6 +81,7 @@ def process_document(document_id: str):
 
         # Mark document completed
         doc.status = DocumentStatus.COMPLETED
+        _persist_event(doc, "job_completed")
         session.add(doc)
         session.commit()
 
@@ -84,6 +92,7 @@ def process_document(document_id: str):
             # Attempt to mark failed in DB
             if 'doc' in locals() and doc is not None:
                 doc.status = DocumentStatus.FAILED
+                _persist_event(doc, "job_failed", str(exc))
                 session.add(doc)
                 session.commit()
         except Exception:

@@ -34,6 +34,12 @@ class DocumentCreateResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UploadDocumentsResponse(BaseModel):
+    documents: list[DocumentCreateResponse]
+
+    model_config = {"from_attributes": True}
+
+
 class FinalizeUpdate(BaseModel):
     """
     Payload used to finalize/update the extraction result.

@@ -74,6 +74,8 @@ class FakeSession:
                 item.id = uuid.uuid4()
             if item.created_at is None:
                 item.created_at = datetime.datetime.utcnow()
+            if getattr(item, "updated_at", None) is None:
+                item.updated_at = datetime.datetime.utcnow()
             if item.status is None:
                 item.status = DocumentStatus.QUEUED
             self.documents[item.id] = item

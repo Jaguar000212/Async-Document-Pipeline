@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Eye, RefreshCw } from "lucide-react";
 
-import { listDocuments } from "@/lib/api";
-import { formatAbsoluteDate, formatRelativeTime } from "@/lib/time";
+import { listDocuments, retryDocument } from "@/lib/api";
+import { formatAbsoluteDate, formatRelativeTime, parseTimestamp } from "@/lib/time";
 import type { Document, DocumentStatus } from "@/types";
 
 const statusClassMap: Record<DocumentStatus, string> = {
@@ -20,6 +20,9 @@ export default function DocumentList() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<DocumentStatus | "All">("All");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "filename-asc" | "filename-desc" | "status">("newest");
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inFlightRef = useRef(false);
 
@@ -75,6 +78,24 @@ export default function DocumentList() {
     };
   }, [documents, fetchDocuments]);
 
+  const visibleDocuments = useMemo(() => {
+    const filtered = documents.filter((doc) => {
+      const matchesSearch = doc.filename.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "All" || doc.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+
+    const sorters: Record<typeof sortBy, (a: Document, b: Document) => number> = {
+      newest: (a, b) => parseTimestamp(b.created_at) - parseTimestamp(a.created_at),
+      oldest: (a, b) => parseTimestamp(a.created_at) - parseTimestamp(b.created_at),
+      "filename-asc": (a, b) => a.filename.localeCompare(b.filename),
+      "filename-desc": (a, b) => b.filename.localeCompare(a.filename),
+      status: (a, b) => a.status.localeCompare(b.status) || parseTimestamp(b.created_at) - parseTimestamp(a.created_at),
+    };
+
+    return filtered.sort(sorters[sortBy]);
+  }, [documents, search, sortBy, statusFilter]);
+
   return (
     <section className="w-full rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -90,12 +111,46 @@ export default function DocumentList() {
         </button>
       </div>
 
+      <div className="mb-4 grid gap-3 md:grid-cols-3">
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by filename"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+        />
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value as DocumentStatus | "All")}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+        >
+          <option value="All">All statuses</option>
+          <option value="Queued">Queued</option>
+          <option value="Processing">Processing</option>
+          <option value="Completed">Completed</option>
+          <option value="Failed">Failed</option>
+        </select>
+        <select
+          value={sortBy}
+          onChange={(event) => setSortBy(event.target.value as typeof sortBy)}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="filename-asc">Filename A-Z</option>
+          <option value="filename-desc">Filename Z-A</option>
+          <option value="status">By status</option>
+        </select>
+      </div>
+
       {loading ? (
         <p className="text-sm text-slate-600">Loading documents...</p>
       ) : error ? (
         <p className="text-sm text-red-600">{error}</p>
-      ) : documents.length === 0 ? (
-        <p className="text-sm text-slate-600">No documents yet. Upload one to start.</p>
+      ) : visibleDocuments.length === 0 ? (
+        <p className="text-sm text-slate-600">
+          {documents.length === 0 ? "No documents yet. Upload one to start." : "No documents match your search/filter."}
+        </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -108,7 +163,7 @@ export default function DocumentList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {documents.map((doc) => (
+              {visibleDocuments.map((doc) => (
                 <tr key={doc.id}>
                   <td className="px-4 py-3 text-slate-800">{doc.filename}</td>
                   <td className="px-4 py-3">
@@ -120,13 +175,31 @@ export default function DocumentList() {
                     {formatRelativeTime(doc.created_at)}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/documents/${doc.id}`}
-                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      View
-                    </Link>
+                    <div className="inline-flex items-center gap-2">
+                      {doc.status === "Failed" && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await retryDocument(doc.id);
+                              await fetchDocuments("background");
+                            } catch (retryError) {
+                              setError(retryError instanceof Error ? retryError.message : "Retry failed.");
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                          Retry
+                        </button>
+                      )}
+                      <Link
+                        href={`/documents/${doc.id}`}
+                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        View
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

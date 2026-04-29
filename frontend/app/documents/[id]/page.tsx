@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { CheckCircle2, CircleDot, Loader2, XCircle } from "lucide-react";
 
-import { getDocument, getDocumentStreamUrl } from "@/lib/api";
+import { getDocument, getDocumentStreamUrl, retryDocument } from "@/lib/api";
 import { formatAbsoluteDate, formatRelativeTime } from "@/lib/time";
 import ReviewForm from "@/components/ReviewForm";
 import ToastStack, { type ToastItem, type ToastKind } from "@/components/ToastStack";
@@ -139,6 +139,10 @@ export default function DocumentDetailPage() {
 
     setProgress((current) => {
       switch (event) {
+        case "job_queued":
+          return { ...current, parsing: "pending", extraction: "pending", finalized: "pending" };
+        case "job_started":
+          return { ...current, parsing: "active", extraction: "pending", finalized: "pending" };
         case "document_parsing_started":
           return { ...current, parsing: "active" };
         case "document_parsing_completed":
@@ -246,6 +250,23 @@ export default function DocumentDetailPage() {
             <p className="text-sm text-slate-500" title={formatAbsoluteDate(document.created_at)}>
               Uploaded: {formatRelativeTime(document.created_at)}
             </p>
+            {document.status === "Failed" && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await retryDocument(document.id);
+                    pushToast("Retry started.", "success");
+                    await loadDocument(true);
+                  } catch (retryError) {
+                    pushToast(retryError instanceof Error ? retryError.message : "Retry failed.", "error");
+                  }
+                }}
+                className="mt-4 inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+              >
+                Retry Failed Job
+              </button>
+            )}
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -280,6 +301,7 @@ export default function DocumentDetailPage() {
             <ReviewForm
               documentId={document.id}
               extractedData={document.result?.extracted_data ?? null}
+              isFinalized={document.result?.is_finalized ?? false}
               onToast={pushToast}
               onFinalized={(result: DocumentResult) => {
                 setDocument((current) => {

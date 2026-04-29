@@ -4,13 +4,13 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Loader2, UploadCloud } from "lucide-react";
 
-import { uploadDocument } from "@/lib/api";
+import { uploadDocuments } from "@/lib/api";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
 export default function UploadForm() {
   const router = useRouter();
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [state, setState] = useState<UploadState>("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -32,18 +32,22 @@ export default function UploadForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!file) {
+    if (files.length === 0) {
       setState("error");
-      setError("Please select a file.");
+      setError("Please select at least one file.");
       return;
     }
 
     try {
       setState("uploading");
       setError(null);
-      const response = await uploadDocument(file);
+      const response = await uploadDocuments(files);
       setState("success");
-      router.push(`/documents/${response.id}`);
+      if (response.documents.length === 1) {
+        router.push(`/documents/${response.documents[0].id}`);
+      } else {
+        router.push("/");
+      }
     } catch (submitError) {
       setState("error");
       setError(submitError instanceof Error ? submitError.message : "Unexpected upload error.");
@@ -63,17 +67,18 @@ export default function UploadForm() {
       <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="document-file">
         File
       </label>
-      <input
+        <input
         id="document-file"
         type="file"
-        onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+        multiple
+        onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
         className="mb-4 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-slate-200"
         disabled={isUploading}
       />
 
       <button
         type="submit"
-        disabled={!file || isUploading}
+        disabled={files.length === 0 || isUploading}
         className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isUploading ? (
@@ -105,7 +110,10 @@ export default function UploadForm() {
         )}
 
         {(state === "idle" || state === "uploading") && (
-          <p className="text-slate-600">{statusText}</p>
+          <p className="text-slate-600">
+            {files.length > 1 ? `${files.length} files selected. ` : files.length === 1 ? `${files[0].name} selected. ` : ""}
+            {statusText}
+          </p>
         )}
       </div>
     </form>

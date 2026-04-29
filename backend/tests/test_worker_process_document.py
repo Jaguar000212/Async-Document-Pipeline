@@ -71,6 +71,7 @@ def test_process_document_success(monkeypatch):
     assert doc.id in session.results
     assert session.results[doc.id].is_finalized is False
     assert events == [
+        "job_started",
         "document_parsing_started",
         "document_parsing_completed",
         "field_extraction_started",
