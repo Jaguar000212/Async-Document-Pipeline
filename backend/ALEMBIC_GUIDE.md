@@ -1,195 +1,113 @@
 # Alembic Migrations Guide
 
-## Quick Reference
+Use this guide when changing SQLAlchemy models in `backend/models.py`.
 
-### When You Modify a Model
-1. Update the model in `models.py`
-2. Create a migration:
-   ```bash
-   cd backend
-   alembic revision --autogenerate -m "descriptive_message"
-   ```
-3. Review the generated migration file in `migrations/versions/`
-4. Apply the migration:
-   ```bash
-   alembic upgrade head
-   ```
+## Project-Specific Setup
 
-### Common Alembic Commands
+- Alembic config lives in `backend/alembic.ini`
+- Migration scripts live in `backend/migrations/versions/`
+- `backend/migrations/env.py` loads `DATABASE_URL` from `backend/settings.py`
 
-#### View Migration History
-```bash
-alembic current        # Show current revision
-alembic history        # Show all revisions
-```
+Because of that `env.py` wiring, your `backend/.env` values are used when running Alembic.
 
-#### Rollback a Migration
-```bash
-alembic downgrade -1   # Rollback one migration
-alembic downgrade aaabc02bf9db  # Rollback to specific revision
-```
+## Quick Workflow
 
-#### Create Manual Migration
-```bash
-alembic revision -m "message"  # Without autogenerate
-# Then edit the migration file manually
-```
-
-## Development Workflow
-
-### Scenario 1: Adding a New Column
-```python
-# In models.py - add to Document class:
-new_column = Column(String, nullable=True)
-
-# In terminal:
-alembic revision --autogenerate -m "add_new_column_to_documents"
+```fish
+cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+alembic revision --autogenerate -m "describe_change"
 alembic upgrade head
 ```
 
-### Scenario 2: Renaming a Column
-```bash
-# Create migration
-alembic revision -m "rename_column"
+Before running those commands, ensure your target DB is reachable and `DATABASE_URL` points to the expected environment.
 
-# Edit migrations/versions/*.py and modify the upgrade/downgrade functions
-# to use op.alter_column() instead of drop/create
+## Common Commands
 
-# Apply migration
+```fish
+cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+alembic current
+alembic history
 alembic upgrade head
+alembic downgrade -1
+alembic downgrade aaabc02bf9db
 ```
 
-### Scenario 3: Adding NOT NULL Column with Existing Data
-```python
-# The migration will automatically create with nullable=True
-# and use ALTER COLUMN to enforce NOT NULL constraint
+Manual migration stub (no autogenerate):
 
-# Alembic handles this intelligently when autogenerating
-alembic revision --autogenerate -m "add_required_field"
+```fish
+cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+alembic revision -m "manual_change"
 ```
+
+## Recommended Migration Review
+
+After `--autogenerate`, always review the new file in `migrations/versions/`:
+
+1. Verify table/column names are correct
+2. Verify nullability and defaults are what you intend
+3. Confirm `upgrade()` and `downgrade()` are reversible
+
+Autogenerate is helpful but not perfect, especially for renames and data migrations.
+
+## Common Scenarios
+
+### Add Column
+
+1. Update model
+2. Generate migration with `--autogenerate`
+3. Review generated `op.add_column(...)`
+4. Apply with `alembic upgrade head`
+
+### Rename Column
+
+Alembic usually detects this as drop + add. Replace that with a safe rename operation manually in migration script.
+
+### Add NOT NULL Column to Existing Table
+
+Use a staged migration pattern:
+
+1. Add column as nullable or with a server default
+2. Backfill existing rows
+3. Enforce NOT NULL via `op.alter_column(...)`
 
 ## Troubleshooting
 
-### Migration Fails Due to Data Constraints
-**Problem**: Can't add NOT NULL column to table with existing rows
+### "Target database is not up to date"
 
-**Solution**: The migration should use server defaults. If it doesn't:
-1. Edit the migration file
-2. Add `server_default` when adding the column
-3. Use `alter_column()` to enforce NOT NULL after data is populated
-
-Example:
-```python
-op.add_column('table', sa.Column('new_col', sa.Integer(), 
-              nullable=True, server_default='0'))
-op.alter_column('table', 'new_col', nullable=False)
-```
-
-### "Target database is not up to date" Error
-```bash
-# Check current state
+```fish
+cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
 alembic current
-
-# Apply pending migrations
 alembic upgrade head
 ```
 
-### Alembic Loses Track of Migrations
-```bash
-# Check alembic_version table
-# This table tracks which migrations have been applied
-# Usually indicates database connection issue or wrong DATABASE_URL
-```
+### Wrong DB Gets Migrated
 
-## Configuration Files
+Check `DATABASE_URL` in `backend/.env` and shell environment.
 
-### `alembic.ini`
-- Main Alembic configuration
-- Contains database URL setting (auto-populated from settings.py)
-- Logging configuration
-- Script location
+### Migration Fails on Constraints
 
-### `migrations/env.py`
-- Runs during migrations
-- Imports models and settings
-- Configures target_metadata for autogeneration
-- Sets up database connection
+Edit migration to handle existing data first (defaults/backfill), then tighten constraints.
 
-### `migrations/script.py.mako`
-- Template for new migration files
-- Only modify if you want to customize migration file format
+## CI/CD and Deploys
 
-## Important Files to Track
+Run migrations before starting API/worker processes:
 
-Make sure to commit these to version control:
-- `alembic.ini`
-- `migrations/env.py`
-- `migrations/script.py.mako`
-- `migrations/versions/*.py` (all migration files)
-
-**.gitignore** should NOT include:
-- Migration files (they must be shared)
-
-## Integration with CI/CD
-
-When deploying:
-```bash
-# In your deployment script:
-cd backend
-alembic upgrade head
-# Then start the application
-```
-
-## Safety Tips
-
-1. **Always test migrations in development first**
-   - Apply migration locally
-   - Run tests
-   - Verify data integrity
-
-2. **Keep migrations small and focused**
-   - One logical change per migration
-   - Easier to understand and rollback if needed
-
-3. **Write down what each migration does**
-   - Use descriptive names
-   - Add comments in migration files if complex
-
-4. **Never manually edit alembic_version table**
-   - This tracks applied migrations
-   - Alembic manages it automatically
-
-5. **Backup database before production migrations**
-   - Always, always backup
-   - Test rollback procedures
-
-## Example: Complete Development Cycle
-
-```bash
-# 1. Modify model
-# Edit models.py, add new_field = Column(String)
-
-# 2. Generate migration
-alembic revision --autogenerate -m "add_new_field_to_document"
-
-# 3. Review migration file
-cat migrations/versions/[revision_id]_add_new_field_to_document.py
-
-# 4. Test locally
-alembic upgrade head
-pytest tests/
-
-# 5. Commit
-git add alembic.ini migrations/versions/[revision_id]_*.py
-git commit -m "Add new_field to Document model"
-
-# 6. Deploy
-# In production/staging deploy script:
+```fish
+cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
 alembic upgrade head
 ```
 
-## Resources
-- [Alembic Documentation](https://alembic.sqlalchemy.org/)
-- [SQLAlchemy Upgrade Guide](https://docs.sqlalchemy.org/)
-- [FastAPI + Alembic Tutorial](https://alembic.sqlalchemy.org/en/latest/tutorial/)
+In Docker Compose, backend startup already runs `alembic upgrade head` before `uvicorn`.
+
+## Safety Checklist
+
+- Keep each migration focused on one logical change
+- Test upgrade and downgrade in a dev DB
+- Never edit `alembic_version` manually
+- Commit migration scripts to version control
+- Back up data before production migrations
+
+## References
+
+- https://alembic.sqlalchemy.org/
+- https://docs.sqlalchemy.org/
 

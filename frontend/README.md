@@ -1,24 +1,32 @@
 # Frontend - Async Document Processing
 
-This is a Next.js (App Router) frontend for the FastAPI async document processing backend.
+This is a Next.js (App Router) + TypeScript frontend for the FastAPI backend.
 
-## Quick Start with Docker (Recommended)
+It provides:
 
-Docker Compose handles everything automatically:
+- Multi-file upload
+- Document/job dashboard with search, status filter, and sorting
+- Document detail page with live progress updates (SSE, with polling fallback)
+- Review/edit/finalize flow for extracted JSON
+- JSON/CSV export for finalized results
 
-```bash
-cd backend
-docker-compose up -d
+## Run With Docker Compose (recommended)
+
+Run from the workspace root:
+
+```fish
+cd "/home/jaguar000212/Development/WebDev/Work Sample"
+docker compose up -d --build
+docker compose ps
 ```
 
-Your frontend will be running at `http://localhost:3000`
+Open `http://localhost:3000`.
 
-## Local Development Setup
+## Run Locally
 
-If you prefer running without Docker:
-
-```bash
-cd frontend
+```fish
+cd "/home/jaguar000212/Development/WebDev/Work Sample/frontend"
+cp .env.example .env.local
 npm install
 npm run dev
 ```
@@ -27,16 +35,32 @@ Open `http://localhost:3000`.
 
 ## Environment
 
-- `NEXT_PUBLIC_API_URL`: Base URL for backend API (default: `http://localhost:8000`).
+- `NEXT_PUBLIC_API_BASE_URL`: backend base URL used by `frontend/lib/api.ts`
+  - default fallback in code: `http://localhost:8000`
 
-## Implemented
+Example:
 
-- `types/index.ts`: shared API/document types.
-- `lib/api.ts`: typed REST client for upload/list/detail/finalize.
-- `components/UploadForm.tsx`: upload UI with state + redirect.
-- `components/DocumentList.tsx`: dashboard table with status badges and manual refresh.
-- `app/page.tsx`: dashboard page hosting upload + jobs table.
-- `app/documents/[id]/page.tsx`: detail view with SSE live progress tracker.
-- `components/ReviewForm.tsx`: edit/finalize extraction JSON and export to file.
+```dotenv
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+## How It Works
+
+- Upload posts files to `POST /api/documents`
+- Dashboard reads `GET /api/documents` and auto-polls while active jobs exist
+- Detail page opens EventSource to `GET /api/documents/{id}/stream`
+- On stream disconnect, detail page falls back to 3s polling
+- Review form sends `PUT /api/documents/{id}/finalize`
+- Export buttons call `GET /api/documents/{id}/export?format=json|csv`
+
+## Key Files
+
+- `app/page.tsx`: dashboard shell
+- `components/UploadForm.tsx`: multi-upload + redirect behavior
+- `components/DocumentList.tsx`: table, search/filter/sort, retry action
+- `app/documents/[id]/page.tsx`: detail page, progress state machine, SSE handling
+- `components/ReviewForm.tsx`: JSON editor, finalize, export, copy
+- `lib/api.ts`: typed API client + error wrapper
+- `types/index.ts`: shared API and domain types
 
 

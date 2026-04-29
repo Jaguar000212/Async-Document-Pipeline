@@ -14,3 +14,6 @@ yarn-error.log*
 /frontend/.env.local
 /backend/alembic.ini
 /.idea/
+/frontend/.next/
+/frontend/package-lock.json
+/frontend/tsconfig.tsbuildinfo
