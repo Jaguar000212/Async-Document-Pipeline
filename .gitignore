@@ -11,3 +11,6 @@ yarn-error.log*
 .vscode/*
 .env
 **/.env
+/frontend/.env.local
+/backend/alembic.ini
+/.idea/

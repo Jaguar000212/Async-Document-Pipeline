@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+venv
+.env
+.git
+.gitignore
+README.md
+*.egg-info
+dist
+build
+.DS_Store
+migrations/versions/__pycache__
+
