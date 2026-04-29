@@ -19,14 +19,18 @@ interface ProgressModel {
   finalized: ProgressState;
 }
 
-function buildProgress(status: DocumentDetail["status"]): ProgressModel {
-  if (status === "Completed") {
-    return { parsing: "done", extraction: "done", finalized: "active" };
+function buildProgress(detail: DocumentDetail): ProgressModel {
+  if (detail.status === "Completed") {
+    return {
+      parsing: "done",
+      extraction: "done",
+      finalized: detail.result?.is_finalized ? "done" : "active",
+    };
   }
-  if (status === "Failed") {
+  if (detail.status === "Failed") {
     return { parsing: "failed", extraction: "failed", finalized: "failed" };
   }
-  if (status === "Processing") {
+  if (detail.status === "Processing") {
     return { parsing: "active", extraction: "pending", finalized: "pending" };
   }
   return { parsing: "pending", extraction: "pending", finalized: "pending" };
@@ -90,7 +94,7 @@ export default function DocumentDetailPage() {
       setError(null);
       const detail = await getDocument(documentId);
       setDocument(detail);
-      setProgress(buildProgress(detail.status));
+      setProgress(buildProgress(detail));
       if (detail.status === "Completed" || detail.status === "Failed") {
         setIsPolling(false);
         if (pollingRef.current) {
@@ -210,7 +214,11 @@ export default function DocumentDetailPage() {
     () => [
       { key: "parsing", label: "Document Parsing", state: progress.parsing },
       { key: "extraction", label: "Field Extraction", state: progress.extraction },
-      { key: "finalized", label: "Ready for Review", state: progress.finalized },
+      {
+        key: "finalized",
+        label: progress.finalized === "done" ? "Finalized" : "Ready for Review",
+        state: progress.finalized,
+      },
     ],
     [progress],
   );

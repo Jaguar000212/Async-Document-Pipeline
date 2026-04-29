@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Eye, RefreshCw } from "lucide-react";
 
@@ -20,12 +20,16 @@ export default function DocumentList() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inFlightRef = useRef(false);
 
-  const fetchDocuments = useCallback(async (isManualRefresh = false) => {
+  const fetchDocuments = useCallback(async (mode: "initial" | "manual" | "background" = "initial") => {
+    if (inFlightRef.current) return;
     try {
-      if (isManualRefresh) {
+      inFlightRef.current = true;
+      if (mode === "manual") {
         setRefreshing(true);
-      } else {
+      } else if (mode === "initial") {
         setLoading(true);
       }
       setError(null);
@@ -34,14 +38,42 @@ export default function DocumentList() {
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Failed to load documents.");
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    void fetchDocuments(false);
+    void fetchDocuments("initial");
   }, [fetchDocuments]);
+
+  useEffect(() => {
+    const hasActiveJobs = documents.some((doc) => doc.status === "Queued" || doc.status === "Processing");
+
+    if (!hasActiveJobs) {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      return;
+    }
+
+    if (pollingRef.current) {
+      return;
+    }
+
+    pollingRef.current = setInterval(() => {
+      void fetchDocuments("background");
+    }, 3000);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [documents, fetchDocuments]);
 
   return (
     <section className="w-full rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -49,7 +81,7 @@ export default function DocumentList() {
         <h2 className="text-lg font-semibold text-slate-900">Processing Jobs</h2>
         <button
           type="button"
-          onClick={() => void fetchDocuments(true)}
+          onClick={() => void fetchDocuments("manual")}
           disabled={loading || refreshing}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
