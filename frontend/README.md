@@ -15,7 +15,7 @@ It provides:
 Run from the workspace root:
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample"
+cd "Work Sample"
 docker compose up -d --build
 docker compose ps
 ```
@@ -25,7 +25,7 @@ Open `http://localhost:3000`.
 ## Run Locally
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/frontend"
+cd "Work Sample/frontend"
 cp .env.example .env.local
 npm install
 npm run dev

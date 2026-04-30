@@ -13,7 +13,7 @@ Because of that `env.py` wiring, your `backend/.env` values are used when runnin
 ## Quick Workflow
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+cd "Work Sample/backend"
 alembic revision --autogenerate -m "describe_change"
 alembic upgrade head
 ```
@@ -23,7 +23,7 @@ Before running those commands, ensure your target DB is reachable and `DATABASE_
 ## Common Commands
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+cd "Work Sample/backend"
 alembic current
 alembic history
 alembic upgrade head
@@ -34,7 +34,7 @@ alembic downgrade aaabc02bf9db
 Manual migration stub (no autogenerate):
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+cd "Work Sample/backend"
 alembic revision -m "manual_change"
 ```
 
@@ -74,7 +74,7 @@ Use a staged migration pattern:
 ### "Target database is not up to date"
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+cd "Work Sample/backend"
 alembic current
 alembic upgrade head
 ```
@@ -92,7 +92,7 @@ Edit migration to handle existing data first (defaults/backfill), then tighten c
 Run migrations before starting API/worker processes:
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+cd "Work Sample/backend"
 alembic upgrade head
 ```
 

@@ -50,7 +50,7 @@ The request-response path only creates jobs and returns quickly. Actual processi
 Run from the repository root:
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample"
+cd "Work Sample"
 docker compose up -d --build
 docker compose ps
 ```
@@ -63,7 +63,7 @@ Open:
 Useful logs:
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample"
+cd "Work Sample"
 docker compose logs -f backend
 docker compose logs -f celery-worker
 ```
@@ -112,7 +112,7 @@ Worker emits these events during processing:
 Backend tests:
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+cd "Work Sample/backend"
 python -m venv .venv
 . .venv/bin/activate.fish
 pip install -r requirements.txt
@@ -122,7 +122,7 @@ pytest -q
 Frontend type-check:
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/frontend"
+cd "Work Sample/frontend"
 npm install
 npm run typecheck
 ```

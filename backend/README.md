@@ -23,7 +23,7 @@ The worker does the processing outside the request-response cycle. The API only 
 Run from the workspace root where `docker-compose.yml` exists:
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample"
+cd "Work Sample"
 docker compose up -d --build
 docker compose ps
 ```
@@ -39,7 +39,7 @@ Services:
 Useful logs:
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample"
+cd "Work Sample"
 docker compose logs -f backend
 docker compose logs -f celery-worker
 ```
@@ -49,7 +49,7 @@ docker compose logs -f celery-worker
 If Postgres and Redis are already running locally:
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+cd "Work Sample/backend"
 cp .env.example .env
 python -m venv .venv
 . .venv/bin/activate.fish
@@ -60,7 +60,7 @@ alembic upgrade head
 Terminal 1 (API):
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+cd "Work Sample/backend"
 . .venv/bin/activate.fish
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -68,7 +68,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 Terminal 2 (worker):
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+cd "Work Sample/backend"
 . .venv/bin/activate.fish
 celery -A worker worker --loglevel=info
 ```
@@ -115,7 +115,7 @@ For schema changes, use Alembic migrations (see `ALEMBIC_GUIDE.md`).
 ## Testing
 
 ```fish
-cd "/home/jaguar000212/Development/WebDev/Work Sample/backend"
+cd "Work Sample/backend"
 python -m venv .venv
 . .venv/bin/activate.fish
 pip install -r requirements.txt
