@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package.json package-lock.json* yarn.lock* ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci --no-audit --no-fund
 
 # Copy frontend code
 COPY . .
