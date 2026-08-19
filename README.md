@@ -1,4 +1,5 @@
 # Async Document Processing Work Sample
+> Built originally as a take-home exercise, then extended: containerised, tested, and documented. Notes on what would need to change for production are at the bottom of this README.
 
 This project demonstrates an end-to-end asynchronous document processing system with:
 
