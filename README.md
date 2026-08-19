@@ -134,3 +134,21 @@ npm run typecheck
 - In Docker Compose, backend startup runs `alembic upgrade head` before starting the API.
 - Frontend API base URL is configured via `NEXT_PUBLIC_API_BASE_URL`.
 
+## What I'd change for production
+
+The current design is correct on the happy path and for transient failures. Four
+things would need to change before it carried real traffic:
+
+- **Dead-letter queue.** Retries are counted on the `documents` row, but a job that
+  exhausts them lands in `Failed` and stops there. A DLQ plus an operator replay path
+  would make exhausted jobs recoverable rather than terminal.
+- **Idempotent enqueue.** A client that retries `POST /api/documents` after a timeout
+  creates a second job for the same upload. An idempotency key on the request, backed
+  by a unique index in Postgres, would collapse duplicates.
+- **Backpressure.** Enqueue accepts unconditionally, so a burst can build a queue depth
+  the workers cannot drain, and SSE clients watch progress stall with no signal why.
+  Rejecting on queue depth with `429` + `Retry-After` surfaces saturation to the caller.
+- **Lossless SSE reconnects.** Progress events are fire-and-forget over Pub/Sub, so a
+  client that drops mid-job misses them permanently. Persisting the event log per job
+  and replaying from `Last-Event-ID` would make reconnection safe.
+
